@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
     ChevronLeft,
     ChevronRight,
@@ -14,9 +14,12 @@ import {
     CheckCircle2,
     AlertCircle,
     Save,
-    Edit as EditIcon
+    Edit as EditIcon,
+    Briefcase,
+    Filter
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatToAmPm } from "@/lib/time";
 import { updateAppointmentStatus, updateAppointment } from "@/app/actions";
 
 interface Appointment {
@@ -30,26 +33,83 @@ interface Appointment {
         name: string;
         price: number;
     };
+    staff?: {
+        name: string;
+    };
+    staff_id?: string;
+}
+
+interface Staff {
+    id: string;
+    name: string;
 }
 
 interface CalendarViewProps {
     appointments: Appointment[];
+    staff: Staff[];
 }
 
-export function CalendarView({ appointments }: CalendarViewProps) {
+export function CalendarView({ appointments, staff }: CalendarViewProps) {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
+    const [selectedStaffId, setSelectedStaffId] = useState<string>('all');
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
+    const filterRef = useRef<HTMLDivElement>(null);
+    const sidebarRef = useRef<HTMLDivElement>(null);
+
+    // Close filter on click outside
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+                setIsFilterOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
+
+    const handleDateSelect = (dateStr: string) => {
+        setSelectedDate(dateStr);
+        // Desplazamiento suave hacia la barra lateral en móvil después de un breve retraso para permitir render
+        setTimeout(() => {
+            sidebarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+    };
 
     // New state for editing
     const [isEditing, setIsEditing] = useState(false);
-    const [editForm, setEditForm] = useState({ date: "", time: "" });
+    const [editForm, setEditForm] = useState({ date: "", time: "", staff_id: "" });
 
     // Cuando se selecciona una cita, inicializar el form
     const handleSelectApt = (apt: Appointment) => {
         setSelectedApt(apt);
-        setEditForm({ date: apt.appointment_date, time: apt.appointment_time });
+        setEditForm({ date: apt.appointment_date, time: apt.appointment_time, staff_id: apt.staff_id || "" });
         setIsEditing(false);
+        // Centrar la vista en el móvil al abrir el detalle
+        setTimeout(() => {
+            sidebarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+    };
+
+    const handleSaveEdit = async () => {
+        if (!selectedApt) return;
+
+        try {
+            await updateAppointment(selectedApt.id, {
+                appointment_date: editForm.date,
+                appointment_time: editForm.time,
+                staff_id: editForm.staff_id || null
+            });
+
+            // Optimistic update (or reload logic could go here)
+            window.location.reload();
+        } catch (error) {
+            console.error("Error updating appointment:", error);
+            alert("Error al actualizar la cita");
+        }
     };
 
     const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
@@ -70,6 +130,19 @@ export function CalendarView({ appointments }: CalendarViewProps) {
     const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
     const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
 
+    // Filter appointments
+    const filteredAppointments = appointments.filter(apt => {
+        if (selectedStaffId === 'all') return true;
+        if (selectedStaffId === 'unassigned') return !apt.staff_id;
+        return apt.staff_id === selectedStaffId;
+    });
+
+    const getFilterLabel = () => {
+        if (selectedStaffId === 'all') return 'Todo el Equipo';
+        if (selectedStaffId === 'unassigned') return 'Sin preferencia';
+        return staff.find(s => s.id === selectedStaffId)?.name || 'Seleccionar';
+    };
+
     const days = [];
     // Pad with previous month's days
     for (let i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
@@ -78,13 +151,13 @@ export function CalendarView({ appointments }: CalendarViewProps) {
 
     for (let day = 1; day <= totalDays; day++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const dayAppointments = appointments.filter(a => a.appointment_date === dateStr);
+        const dayAppointments = filteredAppointments.filter(a => a.appointment_date === dateStr);
         const isToday = new Date().toISOString().split('T')[0] === dateStr;
 
         days.push(
             <div
                 key={day}
-                onClick={() => setSelectedDate(dateStr)}
+                onClick={() => handleDateSelect(dateStr)}
                 className={cn(
                     "h-24 md:h-32 p-3 bg-card/10 border border-border/10 hover:bg-primary/[0.03] transition-all cursor-pointer relative group overflow-hidden",
                     selectedDate === dateStr && "ring-4 ring-primary/20 z-10 bg-primary/5",
@@ -127,7 +200,7 @@ export function CalendarView({ appointments }: CalendarViewProps) {
         );
     }
 
-    const selectedDayAppointments = appointments
+    const selectedDayAppointments = filteredAppointments
         .filter(a => a.appointment_date === selectedDate)
         .sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
 
@@ -142,19 +215,80 @@ export function CalendarView({ appointments }: CalendarViewProps) {
                         </div>
                         {monthNames[month]} {year}
                     </h2>
-                    <div className="flex gap-3">
-                        <button
-                            onClick={prevMonth}
-                            className="p-3 rounded-2xl bg-muted border border-border/40 hover:bg-background hover:scale-110 transition-all text-foreground active:scale-95"
-                        >
-                            <ChevronLeft size={24} />
-                        </button>
-                        <button
-                            onClick={nextMonth}
-                            className="p-3 rounded-2xl bg-muted border border-border/40 hover:bg-background hover:scale-110 transition-all text-foreground active:scale-95"
-                        >
-                            <ChevronRight size={24} />
-                        </button>
+
+                    <div className="flex items-center gap-4">
+                        {/* Staff Filter Custom Dropdown */}
+                        <div className="relative hidden md:block" ref={filterRef}>
+                            <button
+                                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                                className="flex items-center gap-2 bg-muted/50 hover:bg-muted border border-border/40 hover:border-border rounded-xl px-4 py-3 text-sm font-bold text-foreground transition-all min-w-[180px] justify-between"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Filter size={14} className="text-muted-foreground" />
+                                    <span>{getFilterLabel()}</span>
+                                </div>
+                                <ChevronRight size={14} className={cn("text-muted-foreground transition-transform rotate-90", isFilterOpen && "-rotate-90")} />
+                            </button>
+
+                            {isFilterOpen && (
+                                <div className="absolute top-full right-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-border rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                    <div className="p-1.5 space-y-0.5">
+                                        <button
+                                            onClick={() => { setSelectedStaffId('all'); setIsFilterOpen(false); }}
+                                            className={cn(
+                                                "w-full text-left px-3 py-2 text-sm rounded-lg flex items-center justify-between transition-colors",
+                                                selectedStaffId === 'all' ? "bg-primary/20 text-primary font-bold" : "text-slate-300 hover:bg-white/5"
+                                            )}
+                                        >
+                                            Todo el Equipo
+                                            {selectedStaffId === 'all' && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                                        </button>
+
+                                        <button
+                                            onClick={() => { setSelectedStaffId('unassigned'); setIsFilterOpen(false); }}
+                                            className={cn(
+                                                "w-full text-left px-3 py-2 text-sm rounded-lg flex items-center justify-between transition-colors",
+                                                selectedStaffId === 'unassigned' ? "bg-primary/20 text-primary font-bold" : "text-slate-300 hover:bg-white/5"
+                                            )}
+                                        >
+                                            Sin preferencia
+                                            {selectedStaffId === 'unassigned' && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                                        </button>
+
+                                        <div className="h-px bg-white/10 my-1 mx-2" />
+
+                                        {staff.map(s => (
+                                            <button
+                                                key={s.id}
+                                                onClick={() => { setSelectedStaffId(s.id); setIsFilterOpen(false); }}
+                                                className={cn(
+                                                    "w-full text-left px-3 py-2 text-sm rounded-lg flex items-center justify-between transition-colors",
+                                                    selectedStaffId === s.id ? "bg-primary/20 text-primary font-bold" : "text-slate-300 hover:bg-white/5"
+                                                )}
+                                            >
+                                                {s.name}
+                                                {selectedStaffId === s.id && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex gap-2">
+                            <button
+                                onClick={prevMonth}
+                                className="p-3 rounded-2xl bg-muted border border-border/40 hover:bg-background hover:scale-110 transition-all text-foreground active:scale-95"
+                            >
+                                <ChevronLeft size={24} />
+                            </button>
+                            <button
+                                onClick={nextMonth}
+                                className="p-3 rounded-2xl bg-muted border border-border/40 hover:bg-background hover:scale-110 transition-all text-foreground active:scale-95"
+                            >
+                                <ChevronRight size={24} />
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -172,7 +306,7 @@ export function CalendarView({ appointments }: CalendarViewProps) {
             </div>
 
             {/* Sidebar Details */}
-            <div className="w-full xl:w-[400px] flex flex-col gap-8 shrink-0">
+            <div ref={sidebarRef} className="w-full xl:w-[400px] flex flex-col gap-8 shrink-0">
                 <div className="glass shadow-none border border-primary/20 bg-primary/[0.01] rounded-[2.5rem] p-10 min-h-[500px] relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-8 opacity-[0.03] -z-10 bg-primary rounded-bl-full w-40 h-40" />
 
@@ -197,7 +331,7 @@ export function CalendarView({ appointments }: CalendarViewProps) {
                                         <div className="flex justify-between items-start mb-4">
                                             <span className="text-primary font-black flex items-center gap-2 text-sm uppercase tracking-widest italic">
                                                 <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                                                {apt.appointment_time}
+                                                {formatToAmPm(apt.appointment_time)}
                                             </span>
                                             <span className={cn(
                                                 "text-[9px] px-2.5 py-1 rounded-full font-black uppercase tracking-widest border italic",
@@ -212,6 +346,10 @@ export function CalendarView({ appointments }: CalendarViewProps) {
                                         <p className="text-xs text-muted-foreground mt-2 font-bold uppercase tracking-tight opacity-70 group-hover:opacity-100 transition-opacity">
                                             {apt.services?.name || 'Servicio General'}
                                         </p>
+                                        <div className="flex items-center gap-1 mt-2 text-[10px] text-muted-foreground font-black uppercase tracking-widest opacity-50 group-hover:opacity-100 transition-opacity">
+                                            <Briefcase size={10} />
+                                            {(apt.staff as any)?.name || "Sin preferencia"}
+                                        </div>
                                     </div>
                                 ))
                             ) : (
@@ -310,6 +448,27 @@ export function CalendarView({ appointments }: CalendarViewProps) {
                                     </a>
                                 </div>
                             </div>
+
+                            <div className="flex items-start gap-4 p-5 rounded-3xl bg-muted/30 border border-border/40">
+                                <div className="p-3 rounded-2xl bg-slate-500/10 text-slate-500"><Briefcase size={20} /></div>
+                                <div>
+                                    <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-1 italic">Especialista</p>
+                                    {isEditing ? (
+                                        <select
+                                            value={editForm.staff_id}
+                                            onChange={(e) => setEditForm({ ...editForm, staff_id: e.target.value })}
+                                            className="w-full bg-background border border-border rounded-lg p-2 text-sm font-bold outline-none focus:ring-2 focus:ring-primary/50"
+                                        >
+                                            <option value="">Sin preferencia</option>
+                                            {staff.map(s => (
+                                                <option key={s.id} value={s.id}>{s.name}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <p className="text-xl font-bold">{(selectedApt.staff as any)?.name || "Sin preferencia"}</p>
+                                    )}
+                                </div>
+                            </div>
                         </div>
 
                         <div className="mt-12 flex gap-4">
@@ -330,19 +489,7 @@ export function CalendarView({ appointments }: CalendarViewProps) {
                             {isEditing ? (
                                 <>
                                     <button
-                                        onClick={async () => {
-                                            if (!selectedApt) return;
-                                            try {
-                                                await updateAppointment(selectedApt.id, {
-                                                    appointment_date: editForm.date,
-                                                    appointment_time: editForm.time
-                                                });
-                                                alert("Cita actualizada exitosamente");
-                                                window.location.reload();
-                                            } catch (error) {
-                                                alert("Error al actualizar la cita");
-                                            }
-                                        }}
+                                        onClick={handleSaveEdit}
                                         className="flex-1 py-5 bg-emerald-500 text-white font-black rounded-2xl transition-all shadow-2xl shadow-emerald-500/20 hover:bg-emerald-600 active:scale-95 text-lg italic flex items-center justify-center gap-2"
                                     >
                                         <Save size={20} />

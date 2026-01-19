@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Users, BarChart, Clock, ExternalLink, TrendingUp, Calendar as CalendarIcon, MoreVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatToAmPm } from "@/lib/time";
+import AppointmentRowActions from "@/components/dashboard/AppointmentRowActions";
 
 export default async function DashboardPage() {
     const supabase = await createClient();
@@ -25,6 +27,13 @@ export default async function DashboardPage() {
         return redirect("/onboarding");
     }
 
+    // Fetch active staff
+    const { data: staff } = await supabase
+        .from("staff")
+        .select("id, name")
+        .eq("business_id", business.id)
+        .eq("is_active", true);
+
     // Fetch appointments
     const { data: appointments } = await supabase
         .from("appointments")
@@ -35,7 +44,9 @@ export default async function DashboardPage() {
             appointment_date, 
             appointment_time, 
             status,
-            services (name, price)
+            staff_id,
+            services (name, price),
+            staff (name)
         `)
         .eq("business_id", business.id)
         .order("appointment_date", { ascending: true })
@@ -61,48 +72,48 @@ export default async function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Stats Card 1 */}
                 <div className="glass-card p-8 rounded-[2rem] relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform">
-                        <Clock size={80} className="text-primary" />
+                    <div className="absolute -bottom-6 -right-6 p-6 opacity-[0.05] group-hover:scale-110 transition-transform rotate-12">
+                        <Clock size={100} className="text-primary" />
                     </div>
                     <div className="flex justify-between items-start mb-6">
                         <div className="p-4 rounded-2xl bg-primary/10 text-primary border border-primary/20">
                             <Clock size={28} />
                         </div>
-                        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-xs font-black">
+                        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-xs font-black z-10 glass">
                             <TrendingUp size={12} />
                             +12%
                         </div>
                     </div>
-                    <h3 className="text-muted-foreground text-sm font-black uppercase tracking-widest">Citas Hoy</h3>
-                    <p className="text-5xl font-black mt-2 tracking-tighter">{appointments?.length || 0}</p>
+                    <h3 className="text-muted-foreground text-sm font-black uppercase tracking-widest relative z-10">Citas Hoy</h3>
+                    <p className="text-5xl font-black mt-2 tracking-tighter relative z-10">{appointments?.length || 0}</p>
                 </div>
 
                 {/* Stats Card 2 */}
                 <div className="glass-card p-8 rounded-[2rem] relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform">
-                        <BarChart size={80} className="text-indigo-500" />
+                    <div className="absolute -bottom-6 -right-6 p-6 opacity-[0.05] group-hover:scale-110 transition-transform rotate-12">
+                        <BarChart size={100} className="text-indigo-500" />
                     </div>
                     <div className="flex justify-between items-start mb-6">
                         <div className="p-4 rounded-2xl bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
                             <BarChart size={28} />
                         </div>
                     </div>
-                    <h3 className="text-muted-foreground text-sm font-black uppercase tracking-widest">Ingresos (Est.)</h3>
-                    <p className="text-5xl font-black mt-2 tracking-tighter">$0.00</p>
+                    <h3 className="text-muted-foreground text-sm font-black uppercase tracking-widest relative z-10">Ingresos (Est.)</h3>
+                    <p className="text-5xl font-black mt-2 tracking-tighter relative z-10">$0.00</p>
                 </div>
 
                 {/* Stats Card 3 */}
                 <div className="glass-card p-8 rounded-[2rem] relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform">
-                        <Users size={80} className="text-emerald-500" />
+                    <div className="absolute -bottom-6 -right-6 p-6 opacity-[0.05] group-hover:scale-110 transition-transform rotate-12">
+                        <Users size={100} className="text-emerald-500" />
                     </div>
                     <div className="flex justify-between items-start mb-6">
                         <div className="p-4 rounded-2xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
                             <Users size={28} />
                         </div>
                     </div>
-                    <h3 className="text-muted-foreground text-sm font-black uppercase tracking-widest">Clientes Nuevos</h3>
-                    <p className="text-5xl font-black mt-2 tracking-tighter">0</p>
+                    <h3 className="text-muted-foreground text-sm font-black uppercase tracking-widest relative z-10">Clientes Nuevos</h3>
+                    <p className="text-5xl font-black mt-2 tracking-tighter relative z-10">0</p>
                 </div>
             </div>
 
@@ -119,6 +130,7 @@ export default async function DashboardPage() {
                             <tr>
                                 <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-muted-foreground">Cliente</th>
                                 <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-muted-foreground">Servicio</th>
+                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-muted-foreground">Especialista</th>
                                 <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-muted-foreground">Fecha / Hora</th>
                                 <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-muted-foreground">Estado</th>
                                 <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-muted-foreground text-right">Acción</th>
@@ -145,13 +157,18 @@ export default async function DashboardPage() {
                                             ) : null}
                                         </td>
                                         <td className="px-8 py-5">
+                                            <span className="text-sm font-medium text-muted-foreground">
+                                                {(apt.staff as any)?.name || "Sin asignar"}
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-5">
                                             <div className="flex items-center gap-3">
                                                 <div className="p-2 rounded-lg bg-muted border border-border/40 group-hover:bg-background transition-colors">
                                                     <CalendarIcon size={14} className="text-muted-foreground" />
                                                 </div>
                                                 <div>
                                                     <p className="font-bold text-sm">{apt.appointment_date}</p>
-                                                    <p className="text-[10px] text-muted-foreground uppercase font-black">{apt.appointment_time}</p>
+                                                    <p className="text-[10px] text-muted-foreground uppercase font-black">{formatToAmPm(apt.appointment_time)}</p>
                                                 </div>
                                             </div>
                                         </td>
@@ -166,15 +183,18 @@ export default async function DashboardPage() {
                                             </span>
                                         </td>
                                         <td className="px-8 py-5 text-right font-medium">
-                                            <button className="p-2 rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-all">
-                                                <MoreVertical size={20} />
-                                            </button>
+                                            <AppointmentRowActions
+                                                appointmentId={apt.id}
+                                                currentStatus={apt.status}
+                                                staff={staff || []}
+                                                currentStaffId={apt.staff_id}
+                                            />
                                         </td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={5} className="px-8 py-20 text-center">
+                                    <td colSpan={6} className="px-8 py-20 text-center">
                                         <p className="text-muted-foreground font-bold italic text-lg opacity-50">No hay citas registradas aún.</p>
                                     </td>
                                 </tr>

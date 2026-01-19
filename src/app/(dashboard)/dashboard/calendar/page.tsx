@@ -33,10 +33,19 @@ export default async function CalendarPage() {
             appointment_date, 
             appointment_time, 
             status,
-            services (name, price)
+            staff_id,
+            services (name, price),
+            staff (name)
         `)
         .eq("business_id", business.id)
         .order("appointment_date", { ascending: true });
+
+    // Fetch active staff
+    const { data: staff } = await supabase
+        .from("staff")
+        .select("id, name")
+        .eq("business_id", business.id)
+        .eq("is_active", true);
 
     // Transform appointments to match the expected structure if necessary
     const formattedAppointments = (appointments || []).map((apt: any) => ({
@@ -52,7 +61,7 @@ export default async function CalendarPage() {
             </header>
 
             <div className="glass-card rounded-[2.5rem] overflow-hidden p-2">
-                <CalendarView appointments={formattedAppointments} />
+                <CalendarView appointments={formattedAppointments} staff={staff || []} />
             </div>
         </div>
     );

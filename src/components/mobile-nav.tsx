@@ -1,7 +1,7 @@
 "use client";
 
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { Menu, LayoutDashboard, Calendar, Plus, Users, BarChart, Settings, LogOut, Sparkles } from "lucide-react";
+import { Menu, LayoutDashboard, Calendar, Plus, Users, BarChart, Settings, LogOut, Sparkles, Briefcase } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,7 @@ export function MobileNav({ business }: MobileNavProps) {
         { href: "/dashboard", label: "Vista General", icon: LayoutDashboard },
         { href: "/dashboard/calendar", label: "Calendario", icon: Calendar },
         { href: "/dashboard/services", label: "Servicios", icon: Plus },
+        { href: "/dashboard/staff", label: "Equipo", icon: Briefcase },
         { href: "/dashboard/clients", label: "Clientes", icon: Users },
         { href: "/dashboard/statistics", label: "Estadísticas", icon: BarChart },
         { href: "/dashboard/settings", label: "Configuración", icon: Settings },

@@ -15,7 +15,7 @@ export async function updateAppointmentStatus(id: string, status: string) {
     return { success: true };
 }
 
-export async function updateAppointment(id: string, data: { appointment_date: string; appointment_time: string }) {
+export async function updateAppointment(id: string, data: { appointment_date?: string; appointment_time?: string; staff_id?: string | null }) {
     const supabase = await createClient();
     const { error } = await supabase.from("appointments").update(data).eq("id", id);
 

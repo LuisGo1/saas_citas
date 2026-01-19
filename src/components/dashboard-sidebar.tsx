@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, Users, BarChart, Settings, Plus, LayoutDashboard, Sparkles, LogOut } from "lucide-react";
+import { Calendar, Users, BarChart, Settings, Plus, LayoutDashboard, Sparkles, LogOut, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
 import { logout } from "@/app/actions";
@@ -21,6 +21,7 @@ export function Sidebar({ business }: SidebarProps) {
         { href: "/dashboard", label: "Vista General", icon: LayoutDashboard },
         { href: "/dashboard/calendar", label: "Calendario", icon: Calendar },
         { href: "/dashboard/services", label: "Servicios", icon: Plus },
+        { href: "/dashboard/staff", label: "Equipo", icon: Briefcase },
         { href: "/dashboard/clients", label: "Clientes", icon: Users },
         { href: "/dashboard/statistics", label: "Estadísticas", icon: BarChart },
         { href: "/dashboard/settings", label: "Configuración", icon: Settings },

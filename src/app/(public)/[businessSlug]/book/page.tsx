@@ -34,9 +34,16 @@ export default async function BookingPage(props: Props) {
     // Fetch Services for the wizard selector
     const { data: services } = await supabase
         .from("services")
-        .select("*")
+        .select("id, name, duration_minutes, price, image_url")
         .eq("business_id", business.id)
         .eq("active", true);
+
+    // Fetch Staff
+    const { data: staff } = await supabase
+        .from("staff")
+        .select("id, name, role, avatar_url")
+        .eq("business_id", business.id)
+        .eq("is_active", true);
 
     return (
         <div className="min-h-screen bg-background flex flex-col">
@@ -50,6 +57,7 @@ export default async function BookingPage(props: Props) {
                     <BookingWizard
                         business={business}
                         services={services || []}
+                        staff={staff || []}
                         initialServiceId={serviceId}
                     />
                 </div>

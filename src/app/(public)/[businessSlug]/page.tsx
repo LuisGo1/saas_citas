@@ -29,7 +29,7 @@ export default async function BusinessBookingPage(props: Props) {
 
     const { data: services } = await supabase
         .from("services")
-        .select("*")
+        .select("id, name, price, duration_minutes, image_url")
         .eq("business_id", business.id)
         .eq("active", true)
         .order("price", { ascending: true });
@@ -81,29 +81,49 @@ export default async function BusinessBookingPage(props: Props) {
                             <Link
                                 key={service.id}
                                 href={`/${businessSlug}/book?serviceId=${service.id}`}
-                                className="group glass-card p-1 rounded-[2rem] transition-all duration-500 hover:scale-[1.02] hover:shadow-primary/10 active:scale-[0.98]"
+                                className="group glass-card overflow-hidden rounded-[2.5rem] transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:shadow-primary/20 active:scale-[0.98] border border-border/50"
                                 style={{ animationDelay: `${idx * 100}ms` }}
                             >
-                                <div className="bg-card rounded-[1.9rem] p-8 h-full flex flex-col justify-between">
-                                    <div>
-                                        <div className="flex justify-between items-start mb-4">
-                                            <h3 className="text-2xl font-bold group-hover:text-primary transition-colors">{service.name}</h3>
-                                            <span className="text-3xl font-black text-primary">${service.price}</span>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            <span className="inline-flex items-center gap-1.5 text-muted-foreground text-sm bg-muted px-3 py-1 rounded-full">
-                                                <Clock className="w-4 h-4" />
-                                                {service.duration_minutes} min
-                                            </span>
+                                <div className="flex flex-col h-full">
+                                    {/* Service Image/Header */}
+                                    <div className="relative h-64 overflow-hidden bg-muted">
+                                        {service.image_url ? (
+                                            <img
+                                                src={service.image_url}
+                                                alt={service.name}
+                                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-primary/20">
+                                                <Zap size={80} className="fill-primary/5" />
+                                            </div>
+                                        )}
+                                        <div className="absolute top-4 right-4 px-4 py-2 rounded-2xl bg-background/90 backdrop-blur-md border border-border/50 shadow-xl">
+                                            <span className="text-2xl font-black text-primary">${service.price}</span>
                                         </div>
                                     </div>
 
-                                    <div className="mt-8 flex items-center justify-between">
-                                        <span className="text-sm font-bold tracking-widest uppercase opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 text-primary">
-                                            Reservar Ahora <ArrowRight className="w-4 h-4" />
-                                        </span>
-                                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all duration-300">
-                                            <ArrowRight className="w-6 h-6" />
+                                    {/* Service Info */}
+                                    <div className="p-8 flex-1 flex flex-col justify-between bg-card">
+                                        <div>
+                                            <h3 className="text-3xl font-black mb-3 group-hover:text-primary transition-colors tracking-tight italic">
+                                                {service.name}
+                                            </h3>
+                                            <div className="flex items-center gap-4">
+                                                <span className="inline-flex items-center gap-2 text-muted-foreground font-bold text-sm bg-muted/50 px-4 py-2 rounded-xl border border-border/50">
+                                                    <Clock className="w-4 h-4 text-primary" />
+                                                    {service.duration_minutes} MINUTOS
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-8 flex items-center justify-between">
+                                            <span className="text-sm font-black tracking-widest uppercase flex items-center gap-2 text-primary">
+                                                RESERVAR AHORA <ArrowRight className="w-4 h-4" />
+                                            </span>
+                                            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all duration-300 shadow-lg shadow-primary/10">
+                                                <ArrowRight className="w-7 h-7" />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

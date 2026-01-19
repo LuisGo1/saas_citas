@@ -1,10 +1,8 @@
-
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { ClientsTable } from "@/components/dashboard/ClientsTable";
+import { StaffList } from "@/components/dashboard/StaffList";
 
-export default async function ClientsPage() {
+export default async function StaffPage() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -18,17 +16,15 @@ export default async function ClientsPage() {
 
     if (!business) return redirect("/onboarding");
 
-    // Fetch unique clients from appointments
-    const { data: clients } = await supabase
-        .from("appointments")
-        .select("client_name, client_phone, created_at")
+    const { data: staff } = await supabase
+        .from("staff")
+        .select("*")
         .eq("business_id", business.id)
         .order("created_at", { ascending: false });
 
-    // Deduplicate by phone
-    const uniqueClients = clients ? Array.from(new Map(clients.map(c => [c.client_phone, c])).values()) : [];
-
     return (
-        <ClientsTable clients={uniqueClients} />
+        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <StaffList staff={staff || []} />
+        </div>
     );
 }
