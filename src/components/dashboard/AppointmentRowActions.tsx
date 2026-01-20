@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { MoreVertical, Check, X, Trash2, Loader2, User, ArrowRight } from "lucide-react";
+import { MoreVertical, Check, X, Trash2, Loader2, User, ArrowRight, Eye, Calendar, Phone, Clock, DollarSign } from "lucide-react";
 import { updateAppointmentStatus, updateAppointment } from "@/app/actions";
 import { cn } from "@/lib/utils";
+import { formatToAmPm } from "@/lib/time";
 
 interface Staff {
     id: string;
@@ -15,11 +16,22 @@ interface AppointmentRowActionsProps {
     currentStatus: string;
     staff: Staff[];
     currentStaffId?: string;
+    appointmentDetails?: {
+        client_name: string;
+        client_phone: string;
+        appointment_date: string;
+        appointment_time: string;
+        service_name: string;
+        service_price: number;
+        service_duration: number;
+        staff_name?: string;
+    };
 }
 
-export default function AppointmentRowActions({ appointmentId, currentStatus, staff = [], currentStaffId }: AppointmentRowActionsProps) {
+export default function AppointmentRowActions({ appointmentId, currentStatus, staff = [], currentStaffId, appointmentDetails }: AppointmentRowActionsProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isReassigning, setIsReassigning] = useState(false);
+    const [showDetails, setShowDetails] = useState(false);
     const [loading, setLoading] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -111,9 +123,13 @@ export default function AppointmentRowActions({ appointmentId, currentStatus, st
                         <div className="h-px bg-slate-800 my-1"></div>
 
                         <button
-                            onClick={() => alert("Funcionalidad de detalles pendiente")}
-                            className="w-full text-left px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800 rounded-lg transition-colors"
+                            onClick={() => {
+                                setShowDetails(true);
+                                setIsOpen(false);
+                            }}
+                            className="w-full text-left px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-800 rounded-lg flex items-center gap-2 transition-colors"
                         >
+                            <Eye size={16} className="text-blue-400" />
                             Ver Detalles
                         </button>
                     </div>
@@ -138,6 +154,105 @@ export default function AppointmentRowActions({ appointmentId, currentStatus, st
                             ))}
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Details Modal */}
+            {showDetails && appointmentDetails && (
+                <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+                        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+                            <h3 className="text-lg font-bold text-white">Detalles de Cita</h3>
+                            <button
+                                onClick={() => setShowDetails(false)}
+                                className="p-2 text-slate-400 hover:text-white transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            {/* Client Info */}
+                            <div className="flex items-start gap-3">
+                                <User className="w-5 h-5 text-blue-400 mt-0.5" />
+                                <div>
+                                    <p className="text-white font-medium">{appointmentDetails.client_name}</p>
+                                    <p className="text-slate-400 text-sm flex items-center gap-2">
+                                        <Phone className="w-4 h-4" />
+                                        {appointmentDetails.client_phone}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Date & Time */}
+                            <div className="flex items-start gap-3">
+                                <Calendar className="w-5 h-5 text-green-400 mt-0.5" />
+                                <div>
+                                    <p className="text-white font-medium">{appointmentDetails.appointment_date}</p>
+                                    <p className="text-slate-400 text-sm flex items-center gap-2">
+                                        <Clock className="w-4 h-4" />
+                                        {formatToAmPm(appointmentDetails.appointment_time)}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Service Info */}
+                            {appointmentDetails.service_name && (
+                                <div className="flex items-start gap-3">
+                                    <Check className="w-5 h-5 text-purple-400 mt-0.5" />
+                                    <div>
+                                        <p className="text-white font-medium">{appointmentDetails.service_name}</p>
+                                        <div className="flex items-center gap-4 text-sm text-slate-400">
+                                            {appointmentDetails.service_duration && (
+                                                <span>{appointmentDetails.service_duration} min</span>
+                                            )}
+                                            {appointmentDetails.service_price && (
+                                                <span className="flex items-center gap-1">
+                                                    <DollarSign className="w-4 h-4" />
+                                                    {appointmentDetails.service_price}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Staff Info */}
+                            {appointmentDetails.staff_name && (
+                                <div className="flex items-start gap-3">
+                                    <User className="w-5 h-5 text-orange-400 mt-0.5" />
+                                    <div>
+                                        <p className="text-white font-medium">{appointmentDetails.staff_name}</p>
+                                        <p className="text-slate-400 text-sm">Especialista asignado</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Status */}
+                            <div className="pt-4 border-t border-slate-800">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-slate-400 text-sm">Estado:</span>
+                                    <span className={cn(
+                                        "inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-tight italic",
+                                        currentStatus === 'confirmed' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+                                            currentStatus === 'pending' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
+                                                'bg-muted text-muted-foreground border border-border/40'
+                                    )}>
+                                        {currentStatus}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="px-6 py-4 border-t border-slate-800 bg-slate-950/50">
+                            <button
+                                onClick={() => setShowDetails(false)}
+                                className="w-full py-2 px-4 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors font-medium"
+                            >
+                                Cerrar
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

@@ -38,19 +38,28 @@ export default async function DashboardPage() {
     const { data: appointments } = await supabase
         .from("appointments")
         .select(`
-            id, 
-            client_name, 
-            client_phone, 
-            appointment_date, 
-            appointment_time, 
+            id,
+            client_name,
+            client_phone,
+            appointment_date,
+            appointment_time,
             status,
             staff_id,
-            services (name, price),
+            services (name, price, duration_minutes),
             staff (name)
         `)
         .eq("business_id", business.id)
         .order("appointment_date", { ascending: true })
         .limit(10);
+
+    // Calculate income from confirmed appointments
+    const confirmedAppointments = appointments?.filter(apt => apt.status === 'confirmed') || [];
+    const totalIncome = confirmedAppointments.reduce((sum, apt) => {
+        const servicePrice = Array.isArray(apt.services) && apt.services[0]?.price
+            ? apt.services[0].price
+            : (apt.services as any)?.price || 0;
+        return sum + Number(servicePrice);
+    }, 0);
 
     return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -99,7 +108,7 @@ export default async function DashboardPage() {
                         </div>
                     </div>
                     <h3 className="text-muted-foreground text-sm font-black uppercase tracking-widest relative z-10">Ingresos (Est.)</h3>
-                    <p className="text-5xl font-black mt-2 tracking-tighter relative z-10">$0.00</p>
+                    <p className="text-5xl font-black mt-2 tracking-tighter relative z-10">${totalIncome.toFixed(2)}</p>
                 </div>
 
                 {/* Stats Card 3 */}
@@ -188,6 +197,16 @@ export default async function DashboardPage() {
                                                 currentStatus={apt.status}
                                                 staff={staff || []}
                                                 currentStaffId={apt.staff_id}
+                                                appointmentDetails={{
+                                                    client_name: apt.client_name,
+                                                    client_phone: apt.client_phone,
+                                                    appointment_date: apt.appointment_date,
+                                                    appointment_time: apt.appointment_time,
+                                                    service_name: Array.isArray(apt.services) ? apt.services[0]?.name : (apt.services as any)?.name,
+                                                    service_price: Array.isArray(apt.services) ? apt.services[0]?.price : (apt.services as any)?.price,
+                                                    service_duration: Array.isArray(apt.services) ? apt.services[0]?.duration_minutes : (apt.services as any)?.duration_minutes,
+                                                    staff_name: (apt.staff as any)?.name
+                                                }}
                                             />
                                         </td>
                                     </tr>

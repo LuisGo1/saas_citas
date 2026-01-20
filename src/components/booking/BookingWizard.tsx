@@ -4,6 +4,12 @@ import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { Calendar, Clock, User, Check, ChevronRight, ChevronLeft, Phone, Briefcase } from "lucide-react";
 import { formatToAmPm } from "@/lib/time";
+import { getAvailableTimeSlots } from "@/lib/availability";
+import { validateClientName, validatePhoneNumber, validateAppointmentDate, validateAppointmentTime, formatPhoneNumber } from "@/lib/validations";
+import { useErrorHandler } from "@/hooks/useErrorHandler";
+import ErrorDisplay from "@/components/ui/ErrorDisplay";
+import { cn } from "@/lib/utils";
+import { logUserAction, logApiCall, logError } from "@/lib/logger";
 
 // Types
 type Service = {
@@ -45,6 +51,12 @@ export default function BookingWizard({ business, services, staff, initialServic
     const [loading, setLoading] = useState(false);
     const [confirmed, setConfirmed] = useState(false);
     const [conflictError, setConflictError] = useState<string | null>(null);
+    const [availableSlots, setAvailableSlots] = useState<any[]>([]);
+    const [loadingSlots, setLoadingSlots] = useState(false);
+    const [validationErrors, setValidationErrors] = useState<{[key: string]: string[]}>({});
+    const [touchedFields, setTouchedFields] = useState<{[key: string]: boolean}>({});
+
+    const { error, errorType, setError, clearError, handleAsyncError } = useErrorHandler();
 
     // Derived state
     const selectedService = services.find(s => s.id === selectedServiceId);
@@ -52,27 +64,120 @@ export default function BookingWizard({ business, services, staff, initialServic
 
     const supabase = createClient();
 
+    // Validation helpers
+    const validateField = (field: string, value: string) => {
+        let result = { isValid: true, errors: [] as string[] };
+
+        switch (field) {
+            case 'clientName':
+                result = validateClientName(value);
+                break;
+            case 'clientPhone':
+                result = validatePhoneNumber(value);
+                break;
+            case 'date':
+                result = validateAppointmentDate(value);
+                break;
+            case 'time':
+                result = validateAppointmentTime(value);
+                break;
+        }
+
+        setValidationErrors(prev => ({
+            ...prev,
+            [field]: result.errors
+        }));
+
+        return result.isValid;
+    };
+
+    const handleFieldBlur = (field: string, value: string) => {
+        setTouchedFields(prev => ({ ...prev, [field]: true }));
+        validateField(field, value);
+    };
+
     // Handlers
     const handleServiceSelect = (id: string) => {
+        const service = services.find(s => s.id === id);
+        logUserAction('service_selected', {
+            serviceId: id,
+            serviceName: service?.name,
+            step: 1
+        });
         setSelectedServiceId(id);
         setStep(2);
     };
 
     const handleStaffSelect = (id: string | null) => {
+        const staffMember = id ? staff.find(s => s.id === id) : null;
+        logUserAction('staff_selected', {
+            staffId: id,
+            staffName: staffMember?.name || 'Sin preferencia',
+            step: 2
+        });
         setSelectedStaffId(id);
         setStep(3);
     };
 
-    const handleDateSelect = (date: string) => {
+    const handleDateSelect = async (date: string) => {
         setSelectedDate(date);
-        // TODO: Fetch available slots for this date considering selectedStaffId
+        setSelectedTime("");
+        setLoadingSlots(true);
+
+        const result = await handleAsyncError(async () => {
+            const serviceDuration = selectedService?.duration_minutes || 60;
+            const slots = await getAvailableTimeSlots(
+                business.id,
+                date,
+                selectedStaffId || undefined,
+                serviceDuration
+            );
+            setAvailableSlots(slots);
+            return slots;
+        }, 'network');
+
+        if (!result) {
+            setAvailableSlots([]);
+        }
+
+        setLoadingSlots(false);
     };
 
     const handleSubmit = async () => {
-        if (!selectedService || !selectedDate || !selectedTime || !clientName || !clientPhone) return;
+        logUserAction('booking_submit_attempted', {
+            serviceId: selectedServiceId,
+            staffId: selectedStaffId,
+            date: selectedDate,
+            time: selectedTime,
+            clientName,
+            step: 4
+        });
+
+        // Mark all fields as touched for validation display
+        setTouchedFields({
+            clientName: true,
+            clientPhone: true,
+            date: true,
+            time: true
+        });
+
+        // Validate all fields
+        const nameValid = validateField('clientName', clientName);
+        const phoneValid = validateField('clientPhone', clientPhone);
+        const dateValid = validateField('date', selectedDate);
+        const timeValid = validateField('time', selectedTime);
+
+        if (!nameValid || !phoneValid || !dateValid || !timeValid || !selectedService || !selectedDate || !selectedTime) {
+            logUserAction('booking_validation_failed', {
+                errors: validationErrors
+            });
+            return;
+        }
 
         setLoading(true);
         setConflictError(null);
+
+        const startTime = Date.now();
 
         try {
             // 1. Conflict Detection: Check is staff is busy
@@ -107,18 +212,8 @@ export default function BookingWizard({ business, services, staff, initialServic
 
             if (error) throw error;
 
-            // Send WhatsApp confirmation
-            // Basic phone formatting - ensure it starts with + and country code
-            // As per user context, defaulting to +503 (El Salvador) if not provided
-            let formattedPhone = clientPhone.trim().replace(/\D/g, ''); // Remove all non-digits
-
-            if (formattedPhone.length === 8) {
-                formattedPhone = `+503${formattedPhone}`;
-            } else if (formattedPhone.startsWith('503') && formattedPhone.length === 11) {
-                formattedPhone = `+${formattedPhone}`;
-            } else if (!formattedPhone.startsWith('+')) {
-                formattedPhone = `+${formattedPhone}`;
-            }
+            // Format phone number for WhatsApp
+            const formattedPhone = formatPhoneNumber(clientPhone);
 
             console.log("Attempting to send WhatsApp to:", formattedPhone);
 
@@ -145,11 +240,37 @@ export default function BookingWizard({ business, services, staff, initialServic
                 console.error("WhatsApp error details:", errorMessage);
             }
 
+            const duration = Date.now() - startTime;
+            logApiCall('/appointments', 'INSERT', true, duration, null);
+            logUserAction('booking_success', {
+                duration,
+                appointmentData: {
+                    businessId: business.id,
+                    serviceId: selectedServiceId,
+                    staffId: selectedStaffId,
+                    date: selectedDate,
+                    time: selectedTime,
+                    clientName,
+                    clientPhone: formattedPhone
+                }
+            });
             setConfirmed(true);
         } catch (err: any) {
+            const duration = Date.now() - startTime;
             console.error("Booking error:", err);
             const detail = err.context?.error || err.message || "Error desconocido";
-            alert("Error al crear la cita: " + detail);
+            logApiCall('/appointments', 'INSERT', false, duration, err);
+            logError("Booking submission failed", {
+                error: detail,
+                appointmentData: {
+                    businessId: business.id,
+                    serviceId: selectedServiceId,
+                    staffId: selectedStaffId,
+                    date: selectedDate,
+                    time: selectedTime
+                }
+            });
+            setError("Error al crear la cita: " + detail, 'error');
         } finally {
             setLoading(false);
         }
@@ -204,6 +325,18 @@ export default function BookingWizard({ business, services, staff, initialServic
                             </button>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Global Error Display */}
+            {error && (
+                <div className="bg-slate-950 px-6 py-4 border-b border-slate-800">
+                    <ErrorDisplay
+                        error={error}
+                        type={errorType}
+                        onDismiss={clearError}
+                        onRetry={errorType === 'network' ? () => handleSubmit() : undefined}
+                    />
                 </div>
             )}
 
@@ -342,30 +475,53 @@ export default function BookingWizard({ business, services, staff, initialServic
                                 <label className="block text-sm font-medium text-slate-400 mb-2">Selecciona Fecha</label>
                                 <input
                                     type="date"
-                                    className="w-full p-4 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 appearance-none" // appearance-none needed for some browsers to style calendar icon usually
+                                    className={cn(
+                                        "w-full p-4 bg-slate-800 border rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 appearance-none",
+                                        touchedFields.date && validationErrors.date?.length > 0
+                                            ? "border-red-500 focus:ring-red-500"
+                                            : "border-slate-700"
+                                    )}
                                     onChange={(e) => handleDateSelect(e.target.value)}
+                                    onBlur={(e) => handleFieldBlur('date', e.target.value)}
                                     value={selectedDate}
                                     style={{ colorScheme: 'dark' }}
                                 />
+                                {touchedFields.date && validationErrors.date?.length > 0 && (
+                                    <p className="text-red-400 text-sm mt-1">{validationErrors.date[0]}</p>
+                                )}
                             </div>
 
                             {selectedDate && (
                                 <div>
                                     <label className="block text-sm font-medium text-slate-400 mb-2">Horarios Disponibles</label>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        {['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'].map(time => (
-                                            <button
-                                                key={time}
-                                                onClick={() => setSelectedTime(time)}
-                                                className={`py-3 px-2 rounded-lg text-sm font-medium transition-all
-                                            ${selectedTime === time
-                                                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
-                                                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
-                                            >
-                                                {formatToAmPm(time)}
-                                            </button>
-                                        ))}
-                                    </div>
+                                    {loadingSlots ? (
+                                        <div className="flex items-center justify-center py-8">
+                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                                        </div>
+                                    ) : availableSlots.length > 0 ? (
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {availableSlots.map(slot => (
+                                                <button
+                                                    key={slot.time}
+                                                    onClick={() => slot.available && setSelectedTime(slot.time)}
+                                                    disabled={!slot.available}
+                                                    className={`py-3 px-2 rounded-lg text-sm font-medium transition-all
+                                                ${selectedTime === slot.time
+                                                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
+                                                            : slot.available
+                                                                ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                                                                : 'bg-slate-900 text-slate-600 cursor-not-allowed opacity-50'}`}
+                                                    title={!slot.available ? 'Horario no disponible' : undefined}
+                                                >
+                                                    {formatToAmPm(slot.time)}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8 text-slate-500">
+                                            No hay horarios disponibles para esta fecha
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -396,9 +552,18 @@ export default function BookingWizard({ business, services, staff, initialServic
                                     type="text"
                                     value={clientName}
                                     onChange={e => setClientName(e.target.value)}
-                                    className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 outline-none transition"
+                                    onBlur={e => handleFieldBlur('clientName', e.target.value)}
+                                    className={cn(
+                                        "w-full pl-12 pr-4 py-3 bg-slate-800 border rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 outline-none transition",
+                                        touchedFields.clientName && validationErrors.clientName?.length > 0
+                                            ? "border-red-500 focus:ring-red-500"
+                                            : "border-slate-700"
+                                    )}
                                     placeholder="Nombre completo"
                                 />
+                                {touchedFields.clientName && validationErrors.clientName?.length > 0 && (
+                                    <p className="text-red-400 text-sm mt-1">{validationErrors.clientName[0]}</p>
+                                )}
                             </div>
                             <div className="relative">
                                 <Phone className="absolute left-4 top-3.5 text-slate-500" size={20} />
@@ -406,9 +571,18 @@ export default function BookingWizard({ business, services, staff, initialServic
                                     type="tel"
                                     value={clientPhone}
                                     onChange={e => setClientPhone(e.target.value)}
-                                    className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 outline-none transition"
+                                    onBlur={e => handleFieldBlur('clientPhone', e.target.value)}
+                                    className={cn(
+                                        "w-full pl-12 pr-4 py-3 bg-slate-800 border rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 outline-none transition",
+                                        touchedFields.clientPhone && validationErrors.clientPhone?.length > 0
+                                            ? "border-red-500 focus:ring-red-500"
+                                            : "border-slate-700"
+                                    )}
                                     placeholder="Teléfono (WhatsApp)"
                                 />
+                                {touchedFields.clientPhone && validationErrors.clientPhone?.length > 0 && (
+                                    <p className="text-red-400 text-sm mt-1">{validationErrors.clientPhone[0]}</p>
+                                )}
                             </div>
                         </div>
 

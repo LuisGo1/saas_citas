@@ -16,6 +16,23 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## 🛠️ Tecnologías Utilizadas
+
+- **Frontend:** Next.js 16, React 19, Tailwind CSS v4
+- **Backend:** Supabase (Auth, Database, Edge Functions)
+- **UI:** Radix UI, Lucide Icons, Recharts
+- **Deployment:** Vercel
+
+## 📝 Scripts Disponibles
+
+```bash
+npm run dev          # Inicia servidor de desarrollo
+npm run build        # Construye para producción
+npm run start        # Inicia servidor de producción
+npm run lint         # Ejecuta ESLint
+npm run admin        # Configura admin automáticamente
+```
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

@@ -2,8 +2,10 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { updateBusiness } from "./actions";
-import { Settings, Save, Globe, MessageSquare, Briefcase } from "lucide-react";
+import { Settings, Save, Globe, MessageSquare, Briefcase, Clock, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import AvailabilityManager from "@/components/settings/AvailabilityManager";
+import DebugPanel from "@/components/settings/DebugPanel";
 
 export default async function SettingsPage() {
     const supabase = await createClient();
@@ -96,6 +98,19 @@ export default async function SettingsPage() {
                 </form>
             </div>
 
+            {/* Availability Settings */}
+            <div className="max-w-4xl glass-card rounded-[2.5rem] overflow-hidden">
+                <div className="px-8 py-6 border-b border-border/40 bg-muted/30 flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                        <Clock size={20} />
+                    </div>
+                    <h2 className="font-black text-xl tracking-tight italic">Horarios de Atención</h2>
+                </div>
+                <div className="p-8">
+                    <AvailabilityManager businessId={business.id} />
+                </div>
+            </div>
+
             <div className="max-w-3xl glass shadow-none border-dashed border-2 border-border p-8 rounded-[2.5rem] flex items-center gap-6 opacity-60">
                 <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center shrink-0">
                     <Globe className="w-8 h-8 text-muted-foreground" />
@@ -105,6 +120,11 @@ export default async function SettingsPage() {
                     <p className="text-sm text-muted-foreground">Próximamente: Cambia colores, logotipos y fuentes de tu sitio público directamente desde aquí.</p>
                 </div>
             </div>
+
+            {/* Debug Panel - Only in development */}
+            {process.env.NODE_ENV === 'development' && (
+                <DebugPanel />
+            )}
         </div>
     );
 }
