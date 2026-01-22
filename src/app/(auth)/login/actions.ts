@@ -10,7 +10,7 @@ export async function login(formData: FormData) {
     const password = formData.get("password") as string;
     const supabase = await createClient();
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data: authData, error } = await supabase.auth.signInWithPassword({
         email,
         password,
     });
@@ -23,6 +23,29 @@ export async function login(formData: FormData) {
         return redirect(`/login?error=${encodeURIComponent(error.message)}`);
     }
 
+    // Verificar el rol del usuario para redirigir apropiadamente
+    if (authData.user) {
+        console.log("User authenticated:", authData.user.id, authData.user.email);
+        const { data: profile, error: profileError } = await supabase
+            .from("user_profiles")
+            .select("role")
+            .eq("id", authData.user.id)
+            .single();
+
+        if (profileError) {
+            console.error("Error fetching user profile:", profileError);
+        }
+
+        console.log("User profile:", profile);
+        console.log("User role:", profile?.role);
+
+        // Si es admin o superadmin, redirigir al panel de admin
+        if (profile && ["admin", "superadmin"].includes(profile.role)) {
+            return redirect("/admin");
+        }
+    }
+
+    // Para usuarios normales, redirigir al dashboard
     return redirect("/dashboard");
 }
 

@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import { formatToAmPm } from "@/lib/time";
 import AppointmentRowActions from "@/components/dashboard/AppointmentRowActions";
 
+import { PLAN_LIMITS, SUBSCRIPTION_PLANS } from "@/lib/plans";
+
 export default async function DashboardPage() {
     const supabase = await createClient();
 
@@ -16,16 +18,32 @@ export default async function DashboardPage() {
         return redirect("/login");
     }
 
-    // Fetch user's business
-    const { data: business } = await supabase
+    // Fetch user's businesses
+    const { data: businesses, error: businessesError } = await supabase
         .from("businesses")
         .select("id, name, slug")
-        .eq("owner_id", user.id)
-        .single();
+        .eq("owner_id", user.id);
 
-    if (!business) {
+    if (businessesError) {
+        console.error("Error fetching businesses for user:", businessesError);
+    }
+
+    if (!businesses || businesses.length === 0) {
         return redirect("/onboarding");
     }
+
+    // For now, let's assume we operate on the first business found
+    // In a multi-business scenario, we'd need a way to select the active business.
+    const business = businesses[0];
+
+    // Fetch subscription for the current business
+    const { data: subscription } = await supabase
+        .from("subscriptions")
+        .select("plan, status, valid_until")
+        .eq("business_id", business.id)
+        .single();
+    
+    const currentPlan = subscription?.plan || SUBSCRIPTION_PLANS.FREE;
 
     // Fetch active staff
     const { data: staff } = await supabase

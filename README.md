@@ -30,7 +30,6 @@ npm run dev          # Inicia servidor de desarrollo
 npm run build        # Construye para producción
 npm run start        # Inicia servidor de producción
 npm run lint         # Ejecuta ESLint
-npm run admin        # Configura admin automáticamente
 ```
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.

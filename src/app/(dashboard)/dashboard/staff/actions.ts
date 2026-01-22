@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
+import { getUserSubscriptionInfo } from "@/lib/subscription-helpers";
 
 export async function createStaff(formData: FormData) {
     const supabase = await createClient();
@@ -20,6 +21,12 @@ export async function createStaff(formData: FormData) {
 
     if (!business) {
         return { error: "Negocio no encontrado" };
+    }
+
+    // Check subscription limits before creating staff
+    const subscriptionInfo = await getUserSubscriptionInfo(user.id, business.id);
+    if (!subscriptionInfo.canAddStaff) {
+        return { error: `Has alcanzado el límite de especialistas (${subscriptionInfo.numStaffInCurrentBusiness}/${subscriptionInfo.currentPlan === "basic" ? "3" : "Ilimitados"}) para tu plan actual. Actualiza a Premium para añadir más.` };
     }
 
     const name = formData.get("name") as string;

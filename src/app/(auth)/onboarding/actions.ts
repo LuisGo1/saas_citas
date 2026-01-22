@@ -3,6 +3,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
+import { getUserSubscriptionInfo } from "@/lib/subscription-helpers";
 
 export async function createBusiness(formData: FormData) {
     const name = formData.get("name") as string;
@@ -14,6 +15,12 @@ export async function createBusiness(formData: FormData) {
 
     if (!user) {
         return redirect("/login");
+    }
+
+    // Check subscription limits before creating a business
+    const subscriptionInfo = await getUserSubscriptionInfo(user.id);
+    if (!subscriptionInfo.canAddBusiness) {
+        return redirect("/onboarding?error=Has alcanzado el límite de negocios para tu plan actual. Actualiza a Premium para añadir más.");
     }
 
     const { error } = await supabase.from("businesses").insert({
@@ -29,5 +36,5 @@ export async function createBusiness(formData: FormData) {
         return redirect("/onboarding?error=Could not create business. Slug might be taken.");
     }
 
-    return redirect("/dashboard");
+    return redirect("/select-plan");
 }

@@ -1,8 +1,26 @@
 
 import { createBusiness } from "./actions";
+import { createClient } from "@/utils/supabase/server";
+import { redirect } from "next/navigation";
 
 export default async function OnboardingPage(props: { searchParams: Promise<{ error?: string }> }) {
     const searchParams = await props.searchParams;
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        redirect("/login");
+    }
+
+    const { data: businesses } = await supabase
+        .from("businesses")
+        .select("id")
+        .eq("owner_id", user.id);
+
+    if (businesses && businesses.length > 0) {
+        // User already has a business, redirect to dashboard
+        redirect("/dashboard");
+    }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
