@@ -12,14 +12,12 @@ interface Props {
 }
 
 export default async function BusinessBookingPage(props: Props) {
-    const params = await props.params;
-    const { businessSlug } = params;
-
     const supabase = await createClient();
+    const businessSlug = (await props.params).businessSlug;
 
     const { data: business, error } = await supabase
         .from("businesses")
-        .select("id, name, whatsapp_number, timezone")
+        .select("id, name, whatsapp_number, timezone, owner_id")
         .eq("slug", businessSlug)
         .single();
 
@@ -27,19 +25,50 @@ export default async function BusinessBookingPage(props: Props) {
         return notFound();
     }
 
+    // Check for other branches (businesses with same owner)
+    const { data: branches } = await supabase
+        .from("businesses")
+        .select("name, slug")
+        .eq("owner_id", business.owner_id);
+
+    const hasMultipleBranches = branches && branches.length > 1;
+
+    // Fetch services for the current business
     const { data: services } = await supabase
         .from("services")
-        .select("id, name, price, duration_minutes, image_url")
+        .select("*")
         .eq("business_id", business.id)
-        .eq("active", true)
-        .order("price", { ascending: true });
+        .order("name", { ascending: true });
 
     return (
         <div className="min-h-screen bg-background flex flex-col">
             <PublicHeader businessName={business.name} businessSlug={businessSlug} />
 
+            {/* Branch Selector Banner */}
+            {hasMultipleBranches && (
+                <div className="bg-primary/5 border-b border-primary/10">
+                    <div className="container mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                            <ShieldCheck className="w-4 h-4" />
+                            <span>Esta empresa tiene múltiples sedes. Estás viendo: <strong>{business.name}</strong></span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {branches.filter(b => b.slug !== businessSlug).map(branch => (
+                                <Link
+                                    key={branch.slug}
+                                    href={`/${branch.slug}`}
+                                    className="text-xs font-bold px-3 py-1.5 rounded-lg bg-background border border-border/50 hover:border-primary hover:text-primary transition-all shadow-sm"
+                                >
+                                    Ir a {branch.name}
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Hero Section */}
-            <section className="relative w-full pt-20 pb-32 px-4 overflow-hidden">
+            <section className="relative w-full pt-12 pb-32 px-4 overflow-hidden">
                 {/* Background Blobs */}
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-6xl h-full -z-10 opacity-30 dark:opacity-20 pointer-events-none">
                     <div className="absolute top-0 right-1/4 w-96 h-96 bg-primary/40 rounded-full blur-[120px] animate-blob" />

@@ -2,10 +2,11 @@
 import Link from "next/link";
 import { signup } from "../login/actions";
 
-type SearchParams = Promise<{ error?: string; success?: string }>;
+type SearchParams = Promise<{ error?: string; success?: string; plan?: string }>;
 
 export default async function RegisterPage(props: { searchParams: SearchParams }) {
-    const searchParams = await props.searchParams;
+    const params = await props.searchParams;
+    const plan = params.plan || "";
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 overflow-hidden relative font-sans">
@@ -24,6 +25,8 @@ export default async function RegisterPage(props: { searchParams: SearchParams }
                 </div>
 
                 <form className="flex flex-col gap-4">
+                    <input type="hidden" name="plan" value={plan} />
+
                     <div>
                         <label className="block text-sm font-medium text-slate-300 mb-1" htmlFor="email">Email</label>
                         <input
@@ -49,7 +52,7 @@ export default async function RegisterPage(props: { searchParams: SearchParams }
                         formAction={signup}
                         className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold rounded-lg shadow-lg transform hover:scale-[1.02] transition-all mt-4"
                     >
-                        Registrarme Gratis
+                        {plan ? `Registrarme con Plan ${plan === 'premium' ? 'Premium' : 'Básico'}` : "Registrarme Gratis"}
                     </button>
 
                     <div className="text-center mt-6">
@@ -60,8 +63,8 @@ export default async function RegisterPage(props: { searchParams: SearchParams }
                     </div>
 
                     <div className="mt-4 text-center">
-                        {searchParams.error && <p className="text-sm text-red-500 bg-red-500/10 p-2 rounded">{searchParams.error}</p>}
-                        {searchParams.success && <p className="text-sm text-green-500 bg-green-500/10 p-2 rounded">{searchParams.success}</p>}
+                        {params.error && <p className="text-sm text-red-500 bg-red-500/10 p-2 rounded">{params.error}</p>}
+                        {params.success && <p className="text-sm text-green-500 bg-green-500/10 p-2 rounded">{params.success}</p>}
                     </div>
                 </form>
             </div>

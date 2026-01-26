@@ -22,9 +22,17 @@ export default async function StaffPage() {
         .eq("business_id", business.id)
         .order("created_at", { ascending: false });
 
+    // Fetch subscription info to check limits
+    const { getUserSubscriptionInfo } = await import("@/lib/subscription-helpers");
+    const subscriptionInfo = await getUserSubscriptionInfo(user.id, business.id);
+
     return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <StaffList staff={staff || []} />
+            <StaffList
+                staff={staff || []}
+                canAddStaff={subscriptionInfo.canAddStaff}
+                maxStaff={subscriptionInfo.currentPlan === 'basic' ? 3 : -1} // -1 for unlimited
+            />
         </div>
     );
 }

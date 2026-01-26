@@ -16,11 +16,38 @@ export default async function DashboardLayout({
         return redirect("/login");
     }
 
-    const { data: business } = await supabase
+    // Check subscription
+    const { getUserSubscriptionInfo } = await import("@/lib/subscription-helpers");
+    const subscriptionInfo = await getUserSubscriptionInfo(user.id);
+    // Note: subscription-helpers might default to basic/false if error, so we should check if they actually have a subscription record if we want STRICT enforcement.
+    // However, the helper returns default "Basic" values if it fails or finds nothing? 
+    // Let's check the helper implementation again. 
+    // It defaults to BASIC. This is problematic if we want to FORCE selection.
+    // I should probably do a raw DB check here for STRICT enforcement, or update the helper to return "none".
+
+    // Raw check for strict enforcement
+    const { data: subscription } = await supabase
+        .from("subscriptions")
+        .select("status")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .single();
+
+    if (!subscription) {
+        return redirect("/select-plan");
+    }
+
+    const { data: businesses, error: businessesError } = await supabase
         .from("businesses")
         .select("id, name, slug")
         .eq("owner_id", user.id)
-        .single();
+        .order("created_at", { ascending: false });
+
+    if (businessesError) {
+        console.error("Layout business fetch error:", businessesError);
+    }
+
+    const business = businesses && businesses.length > 0 ? businesses[0] : null;
 
     if (!business) {
         return redirect("/onboarding");

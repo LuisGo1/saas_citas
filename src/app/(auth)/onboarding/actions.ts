@@ -36,5 +36,5 @@ export async function createBusiness(formData: FormData) {
         return redirect("/onboarding?error=Could not create business. Slug might be taken.");
     }
 
-    return redirect("/select-plan");
+    return redirect("/dashboard");
 }

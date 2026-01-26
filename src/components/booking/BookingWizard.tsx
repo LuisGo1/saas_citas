@@ -53,8 +53,8 @@ export default function BookingWizard({ business, services, staff, initialServic
     const [conflictError, setConflictError] = useState<string | null>(null);
     const [availableSlots, setAvailableSlots] = useState<any[]>([]);
     const [loadingSlots, setLoadingSlots] = useState(false);
-    const [validationErrors, setValidationErrors] = useState<{[key: string]: string[]}>({});
-    const [touchedFields, setTouchedFields] = useState<{[key: string]: boolean}>({});
+    const [validationErrors, setValidationErrors] = useState<{ [key: string]: string[] }>({});
+    const [touchedFields, setTouchedFields] = useState<{ [key: string]: boolean }>({});
 
     const { error, errorType, setError, clearError, handleAsyncError } = useErrorHandler();
 
@@ -221,9 +221,11 @@ export default function BookingWizard({ business, services, staff, initialServic
                 const { data: invokeData, error: invokeError } = await supabase.functions.invoke('send-whatsapp', {
                     body: {
                         phone: formattedPhone,
-                        templateName: 'hello_world',
-                        languageCode: 'en_US',
-                        components: []
+                        businessId: business.id,
+                        clientName: clientName,
+                        businessName: business.name,
+                        date: selectedDate,
+                        time: selectedTime,
                     }
                 });
 

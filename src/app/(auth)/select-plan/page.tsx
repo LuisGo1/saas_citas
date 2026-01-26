@@ -2,9 +2,13 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { PLAN_LIMITS, SUBSCRIPTION_PLANS } from "@/lib/plans";
-import { CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle } from "lucide-react";
+import { selectPlan } from "./actions";
 
-export default async function SelectPlanPage() {
+export default async function SelectPlanPage(props: { searchParams: Promise<{ preselected?: string }> }) {
+    const searchParams = await props.searchParams;
+    const preselected = searchParams.preselected;
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -12,26 +16,17 @@ export default async function SelectPlanPage() {
         redirect("/login");
     }
 
-    // Check if user already has an active subscription for any of their businesses
-    const { data: businesses } = await supabase
-        .from("businesses")
-        .select("id")
-        .eq("owner_id", user.id);
+    // Check if user already has an active subscription
+    const { data: subscription } = await supabase
+        .from("subscriptions")
+        .select("id, status")
+        .eq("user_id", user.id)
+        .single();
 
-    if (businesses && businesses.length > 0) {
-        const businessIds = businesses.map(b => b.id);
-        const { data: subscriptions } = await supabase
-            .from("subscriptions")
-            .select("status")
-            .in("business_id", businessIds)
-            .eq("status", "active");
-
-        if (subscriptions && subscriptions.length > 0) {
-            // User already has an active subscription, redirect to dashboard
-            redirect("/dashboard");
-        }
+    if (subscription?.status === "active") {
+        // User already has a plan, proceed to dashboard (which handles onboarding check)
+        redirect("/dashboard");
     }
-
 
     const plans = [
         {
@@ -44,10 +39,11 @@ export default async function SelectPlanPage() {
                 `Hasta ${PLAN_LIMITS.basic.max_staff} especialistas`,
                 "Citas ilimitadas",
                 "Sitio público personalizable",
-                "Notificaciones de WhatsApp básicas",
+                "Notificaciones de WhatsApp básicas (Tu API)",
                 "Estadísticas básicas",
             ],
             cta: "Elegir Plan Básico",
+            variant: "basic"
         },
         {
             id: SUBSCRIPTION_PLANS.PREMIUM,
@@ -59,11 +55,12 @@ export default async function SelectPlanPage() {
                 "Especialistas ilimitados",
                 "Citas ilimitadas",
                 "Sitio público personalizable avanzado",
-                "Notificaciones de WhatsApp automáticas",
+                "Notificaciones de WhatsApp automáticas (Nuestra API)",
                 "Estadísticas avanzadas",
                 "Soporte prioritario",
             ],
             cta: "Elegir Plan Premium",
+            variant: "premium"
         },
     ];
 
@@ -71,12 +68,18 @@ export default async function SelectPlanPage() {
         <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800 text-white p-4">
             <div className="text-center mb-12">
                 <h1 className="text-5xl font-extrabold mb-4">Elige tu Plan</h1>
-                <p className="text-xl text-indigo-200">Comienza a gestionar tus citas con el plan perfecto para ti.</p>
+                <p className="text-xl text-indigo-200">
+                    {preselected ? `Excelente elección. Confirma tu Plan ${preselected === 'premium' ? 'Premium' : 'Básico'} para continuar.` : "Comienza a gestionar tus citas con el plan perfecto para ti."}
+                </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl">
                 {plans.map((plan) => (
-                    <div key={plan.id} className="bg-white/10 backdrop-blur-md rounded-3xl p-8 shadow-xl border border-white/20 flex flex-col justify-between transform transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl">
+                    <div
+                        key={plan.id}
+                        className={`bg-white/10 backdrop-blur-md rounded-3xl p-8 shadow-xl border flex flex-col justify-between transform transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl ${preselected === plan.id ? 'border-yellow-400 border-4 scale-[1.05] ring-4 ring-yellow-400/20' : 'border-white/20'
+                            }`}
+                    >
                         <div>
                             <h2 className="text-3xl font-bold mb-4 text-white">{plan.name}</h2>
                             <p className="text-5xl font-extrabold text-blue-300 mb-6">{plan.price}</p>
@@ -90,12 +93,20 @@ export default async function SelectPlanPage() {
                                 ))}
                             </ul>
                         </div>
-                        <button
-                            // onClick={() => handleSelectPlan(plan.id)} // Lógica para Stripe Checkout
-                            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 rounded-xl text-xl transition-all transform hover:scale-[1.02] shadow-lg"
-                        >
-                            {plan.cta}
-                        </button>
+                        <form action={async () => {
+                            "use server";
+                            await selectPlan(plan.id);
+                        }}>
+                            <button
+                                type="submit"
+                                className={`w-full font-bold py-4 rounded-xl text-xl transition-all transform hover:scale-[1.02] shadow-lg ${plan.variant === 'premium'
+                                    ? 'bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-white'
+                                    : 'bg-blue-500 hover:bg-blue-600 text-white'
+                                    }`}
+                            >
+                                {plan.cta}
+                            </button>
+                        </form>
                     </div>
                 ))}
             </div>

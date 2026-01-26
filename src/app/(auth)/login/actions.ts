@@ -53,13 +53,25 @@ export async function signup(formData: FormData) {
     const origin = (await headers()).get("origin");
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
+    const plan = formData.get("plan") as string; // Capture plan intention
+
     const supabase = await createClient();
+
+    const nextUrl = new URL("/select-plan", origin || undefined);
+    if (plan) {
+        nextUrl.searchParams.set("preselected", plan);
+    }
+
+    // Construct the callback URL
+    // We want: /auth/callback?next=/select-plan%3Fpreselected%3Dbasic
+    const callbackUrl = new URL("/auth/callback", origin || undefined);
+    callbackUrl.searchParams.set("next", nextUrl.pathname + nextUrl.search);
 
     const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-            emailRedirectTo: `${origin}/auth/callback`,
+            emailRedirectTo: callbackUrl.toString(),
         },
     });
 
@@ -67,5 +79,5 @@ export async function signup(formData: FormData) {
         return redirect(`/register?error=${encodeURIComponent(error.message)}`);
     }
 
-    return redirect("/register?success=¡Cuenta creada! Revisa tu email para confirmar y poder entrar.");
+    return redirect(`/register?success=¡Cuenta creada! Revisa tu email para confirmar y poder entrar.`);
 }

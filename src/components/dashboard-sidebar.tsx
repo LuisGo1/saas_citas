@@ -19,9 +19,10 @@ export function Sidebar({ business }: SidebarProps) {
 
     const navItems = [
         { href: "/dashboard", label: "Vista General", icon: LayoutDashboard },
+        { href: "/dashboard/businesses", label: "Mis Negocios", icon: Briefcase },
         { href: "/dashboard/calendar", label: "Calendario", icon: Calendar },
         { href: "/dashboard/services", label: "Servicios", icon: Plus },
-        { href: "/dashboard/staff", label: "Equipo", icon: Briefcase },
+        { href: "/dashboard/staff", label: "Equipo", icon: Users },
         { href: "/dashboard/clients", label: "Clientes", icon: Users },
         { href: "/dashboard/statistics", label: "Estadísticas", icon: BarChart },
         { href: "/dashboard/settings", label: "Configuración", icon: Settings },

@@ -15,9 +15,11 @@ interface Staff {
 
 interface StaffListProps {
     staff: Staff[];
+    canAddStaff: boolean;
+    maxStaff: number;
 }
 
-export function StaffList({ staff }: StaffListProps) {
+export function StaffList({ staff, canAddStaff, maxStaff }: StaffListProps) {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [editingMember, setEditingMember] = useState<Staff | null>(null);
@@ -76,13 +78,29 @@ export function StaffList({ staff }: StaffListProps) {
                     <p className="text-muted-foreground font-medium mt-1">Gestiona a tus especialistas, barberos o mecánicos.</p>
                 </div>
 
-                <button
-                    onClick={() => setIsCreateOpen(true)}
-                    className="px-6 py-3 bg-primary text-primary-foreground font-bold rounded-2xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2"
-                >
-                    <Plus size={20} />
-                    <span>Agregar Miembro</span>
-                </button>
+                {canAddStaff ? (
+                    <button
+                        onClick={() => setIsCreateOpen(true)}
+                        className="px-6 py-3 bg-primary text-primary-foreground font-bold rounded-2xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2"
+                    >
+                        <Plus size={20} />
+                        <span>Agregar Miembro</span>
+                    </button>
+                ) : (
+                    <div className="flex flex-col items-end">
+                        <a href="/dashboard/plans" className="group">
+                            <button
+                                className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold rounded-2xl shadow-lg shadow-orange-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2"
+                            >
+                                <Plus size={20} className="opacity-50" />
+                                <span>Límite Alcanzado ({maxStaff}/{maxStaff})</span>
+                            </button>
+                        </a>
+                        <p className="text-xs text-muted-foreground font-bold mt-2 group-hover:text-primary transition-colors">
+                            <a href="/dashboard/plans" className="hover:underline">Actualiza a Premium &rarr;</a>
+                        </p>
+                    </div>
+                )}
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

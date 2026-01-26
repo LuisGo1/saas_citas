@@ -34,30 +34,24 @@ export async function getUserSubscriptionInfo(userId: string, businessId?: strin
 
     const numBusinesses = businesses?.length || 0;
 
-    // Fetch the subscription for one of the businesses (assuming one subscription per user/business for now)
-    // In a multi-business scenario, each business would have its own subscription or user has a global subscription.
-    // For simplicity, let's get the plan from the first business found.
     let currentPlan = SUBSCRIPTION_PLANS.BASIC;
     let isPremium = false;
 
-    if (businesses && businesses.length > 0) {
-        const businessIds = businesses.map(b => b.id);
-        const { data: subscription } = await supabase
-            .from("subscriptions")
-            .select("plan, status")
-            .in("business_id", businessIds)
-            .eq("status", "active")
-            .limit(1)
-            .single();
-        
-        if (subscription) {
-            currentPlan = subscription.plan;
-            isPremium = (currentPlan === SUBSCRIPTION_PLANS.PREMIUM);
-        }
+    // In the new schema, subscriptions are per user (owner), not per business.
+    const { data: subscription } = await supabase
+        .from("subscriptions")
+        .select("plan, status")
+        .eq("user_id", userId)
+        .eq("status", "active")
+        .single();
+
+    if (subscription) {
+        currentPlan = subscription.plan;
+        isPremium = (currentPlan === SUBSCRIPTION_PLANS.PREMIUM);
     }
 
-    const maxBusinesses = PLAN_LIMITS[currentPlan]?.max_businesses || PLAN_LIMITS.basic.max_businesses;
-    const maxStaff = PLAN_LIMITS[currentPlan]?.max_staff || PLAN_LIMITS.basic.max_staff;
+    const maxBusinesses = PLAN_LIMITS[currentPlan as keyof typeof PLAN_LIMITS]?.max_businesses || PLAN_LIMITS.basic.max_businesses;
+    const maxStaff = PLAN_LIMITS[currentPlan as keyof typeof PLAN_LIMITS]?.max_staff || PLAN_LIMITS.basic.max_staff;
 
     let numStaffInCurrentBusiness = 0;
     if (businessId) {

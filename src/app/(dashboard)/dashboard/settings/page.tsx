@@ -6,6 +6,7 @@ import { Settings, Save, Globe, MessageSquare, Briefcase, Clock, Plus, Trash2 } 
 import { cn } from "@/lib/utils";
 import AvailabilityManager from "@/components/settings/AvailabilityManager";
 import DebugPanel from "@/components/settings/DebugPanel";
+import WhatsAppSettingsForm from "@/components/settings/WhatsAppSettingsForm";
 
 export default async function SettingsPage() {
     const supabase = await createClient();
@@ -20,6 +21,9 @@ export default async function SettingsPage() {
         .single();
 
     if (!business) return redirect("/onboarding");
+
+    const { getUserSubscriptionInfo } = await import("@/lib/subscription-helpers");
+    const subscriptionInfo = await getUserSubscriptionInfo(user.id);
 
     return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -108,6 +112,23 @@ export default async function SettingsPage() {
                 </div>
                 <div className="p-8">
                     <AvailabilityManager businessId={business.id} />
+                </div>
+            </div>
+
+            {/* WhatsApp Settings */}
+            <div className="max-w-4xl glass-card rounded-[2.5rem] overflow-hidden">
+                <div className="px-8 py-6 border-b border-border/40 bg-muted/30 flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                        <MessageSquare size={20} />
+                    </div>
+                    <h2 className="font-black text-xl tracking-tight italic">Configuración de WhatsApp</h2>
+                </div>
+                <div className="p-8">
+                    <WhatsAppSettingsForm
+                        businessId={business.id}
+                        initialSettings={business.whatsapp_settings}
+                        plan={subscriptionInfo.currentPlan}
+                    />
                 </div>
             </div>
 

@@ -12,6 +12,18 @@ export default async function OnboardingPage(props: { searchParams: Promise<{ er
         redirect("/login");
     }
 
+    // Enforce Plan Selection
+    const { data: subscription } = await supabase
+        .from("subscriptions")
+        .select("status")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .single();
+
+    if (!subscription) {
+        redirect("/select-plan");
+    }
+
     const { data: businesses } = await supabase
         .from("businesses")
         .select("id")
